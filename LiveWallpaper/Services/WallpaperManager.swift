@@ -12,7 +12,10 @@ import AVFoundation
 
 class WallpaperManager: ObservableObject {
     private var windows: [NSWindow] = []
-    private var videoPlayers: [LoopingVideoPlayer] = []
+    
+    // Use a single player instead of an array
+    private var videoPlayer: LoopingVideoPlayer?
+    
     private var currentURL: URL?
     private var cancellables = Set<AnyCancellable>()
     
@@ -37,7 +40,7 @@ class WallpaperManager: ObservableObject {
         
         // A. Screen Sleep / Wake
         workspaceCenter.publisher(for: NSWorkspace.screensDidSleepNotification)
-            .sink { [weak self] _ in self?.pauseAll() }
+            .sink { [weak self] _ in self?.videoPlayer?.pause() }
             .store(in: &cancellables)
         
         workspaceCenter.publisher(for: NSWorkspace.screensDidWakeNotification)
@@ -51,30 +54,22 @@ class WallpaperManager: ObservableObject {
         
         // C. Window Occlusion (Covered by fullscreen apps or opaque windows)
         defaultCenter.publisher(for: NSWindow.didChangeOcclusionStateNotification)
-            .sink { [weak self] notification in
-                guard let self = self,
-                      let window = notification.object as? NSWindow,
-                      let index = self.windows.firstIndex(of: window),
-                      index < self.videoPlayers.count else { return }
-                
-                self.evaluateVisibility(for: window, player: self.videoPlayers[index])
+            .sink { [weak self] _ in
+                // If any window's occlusion changes, re-evaluate global visibility
+                self?.evaluateAllVisibilities()
             }
             .store(in: &cancellables)
     }
     
-    private func pauseAll() {
-        videoPlayers.forEach { $0.pause() }
-    }
-    
     private func evaluateAllVisibilities() {
-        for (index, window) in windows.enumerated() {
-            guard index < videoPlayers.count else { continue }
-            evaluateVisibility(for: window, player: videoPlayers[index])
+        guard let player = videoPlayer else { return }
+        
+        // Check if the wallpaper is visible on AT LEAST ONE screen
+        let isVisibleOnAnyScreen = windows.contains { window in
+            window.occlusionState.contains(.visible)
         }
-    }
-    
-    private func evaluateVisibility(for window: NSWindow, player: LoopingVideoPlayer) {
-        if window.occlusionState.contains(.visible) {
+        
+        if isVisibleOnAnyScreen {
             player.play()
         } else {
             player.pause()
@@ -84,9 +79,9 @@ class WallpaperManager: ObservableObject {
     // MARK: - Window Management
     
     private func setupWallpaperWindows() {
-        // 1. Clean up old players and windows
-        videoPlayers.forEach { $0.stop() }
-        videoPlayers.removeAll()
+        // 1. Clean up old player and windows
+        videoPlayer?.stop()
+        videoPlayer = nil
         
         windows.forEach { $0.close() }
         windows.removeAll()
@@ -100,9 +95,8 @@ class WallpaperManager: ObservableObject {
                 defer: false
             )
             
-            // Prevents macOS from animating during sleep/lock
-            window.animationBehavior = .none
             window.isReleasedWhenClosed = false
+            window.animationBehavior = .none
             
             let desktopLevel = Int(CGWindowLevelForKey(.desktopIconWindow)) - 1
             window.level = NSWindow.Level(desktopLevel)
@@ -128,27 +122,27 @@ class WallpaperManager: ObservableObject {
         
         windows.forEach { ($0.contentView as? VideoWallpaperView)?.playerLayer.player = nil }
         
-        videoPlayers.forEach { $0.stop() }
-        videoPlayers.removeAll()
+        videoPlayer?.stop()
+        videoPlayer = nil
         
-        guard let url = url else {
-            return
-        }
+        guard let url = url else { return }
         
         applyVideoToWindows(url: url)
     }
     
     private func applyVideoToWindows(url: URL) {
+        // 1. Instantiate the player exactly ONCE
+        let player = LoopingVideoPlayer(url: url)
+        self.videoPlayer = player
+        
+        // 2. Attach this single player to ALL windows
         for window in windows {
             if let playerView = window.contentView as? VideoWallpaperView {
-                let player = LoopingVideoPlayer(url: url)
                 playerView.playerLayer.player = player.player
-                
-                // Evaluate initial visibility instead of unconditionally calling play()
-                evaluateVisibility(for: window, player: player)
-                
-                videoPlayers.append(player) // Retain the player in our array so it doesn't deallocate
             }
         }
+        
+        // 3. Evaluate visibility to decide if it should start playing
+        evaluateAllVisibilities()
     }
 }
