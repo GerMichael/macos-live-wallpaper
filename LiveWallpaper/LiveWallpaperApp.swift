@@ -11,7 +11,7 @@ import SwiftUI
 struct LiveWallpaperApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
-        }
+            ContentView().windowResizeBehavior(.disabled)
+        }.windowResizability(.contentSize)
     }
 }
