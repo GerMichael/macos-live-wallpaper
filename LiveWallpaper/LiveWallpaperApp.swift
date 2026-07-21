@@ -9,9 +9,38 @@ import SwiftUI
 
 @main
 struct LiveWallpaperApp: App {
+    // Load settings once at the App level
+    @State private var settings = SettingsService.loadSettings()
+    @StateObject private var wallpaperManagerService = WallpaperManagerService()
+    @Environment(\.openWindow) private var openWindow
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView().windowResizeBehavior(.disabled)
-        }.windowResizability(.contentSize)
+        MenuBarExtra("Live Wallpaper", systemImage: "photo.tv") {
+            Button("Settings...") {
+                openWindow(id: "settingsWindow")
+            }
+            .keyboardShortcut(",", modifiers: .command)
+            
+            Divider()
+            
+            Button("Quit Live Wallpaper") {
+                NSApplication.shared.terminate(nil)
+            }
+            .keyboardShortcut("q", modifiers: .command)
+        }
+        
+        Window("Settings", id: "settingsWindow") {
+            // Pass the binding so changes reflect here
+            SettingsView(settings: $settings)
+                .frame(minWidth: 600, minHeight: 400)
+                .onChange(of: settings.selectedMovie) { _, newVideoUrl in
+                    wallpaperManagerService.updateVideo(url: newVideoUrl)
+                }
+                .onAppear {
+                    wallpaperManagerService.updateVideo(url: settings.selectedMovie)
+                }
+        }
+        .defaultPosition(.center)
+        .windowStyle(.hiddenTitleBar)
     }
 }
