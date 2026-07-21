@@ -3,86 +3,37 @@ import UniformTypeIdentifiers
 
 import UniformTypeIdentifiers
 
-struct DirectorySelectorView: View {
-    @Binding var selectedDirectoryURL: URL?
-    @State private var showDocumentPicker = false
-    
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text(selectedDirectoryURL?.path ?? "No directory selected")
-                    .foregroundColor(.secondary)
-                Spacer()
-                Button("Select Folder") {
-                    showDocumentPicker = true
-                }
-            }
-            
-        }
-        .fileImporter(
-            isPresented: $showDocumentPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                selectedDirectoryURL = url
-            }
-        }
-    }
-}
-
-struct MovieGridItemView: View {
-    let movieURL: URL
-    let isSelected: Bool
-    let onSelect: () -> Void
-    
-    var body: some View {
-        VStack {
-            VideoPreviewView(url: movieURL)
-                .frame(height: 80)
-                .cornerRadius(6)
-                .clipped()
-            
-            Text(movieURL.lastPathComponent)
-                .font(.caption)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .truncationMode(.middle)
-        }
-        .padding(8)
-        .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
-        )
-        .onTapGesture {
-            onSelect()
-        }
-    }
-}
 
 struct MovieSelectionSettingsView: View {
     @Binding var selectedMovieDirectoryURL: URL?
     @Binding var selectedMovieURL: URL?
     
     @State private var movieFiles: [URL] = []
-    // Currently accessed directory to release it later
     @State private var currentlyAccessedFolder: URL?
+    @State private var directoryMonitor = DirectoryMonitor()
     
     let columns = [GridItem(.adaptive(minimum: 120, maximum: 160), spacing: 16)]
     
     var body: some View {
         Form {
-            Section("Selected Movie Directory") {
+            Section {
                 DirectorySelectorView(selectedDirectoryURL: $selectedMovieDirectoryURL)
+            } header: {
+                Text("Selected Movie Directory")
             }
             
-            Section("Select Movie") {
+            Section {
                 if movieFiles.isEmpty {
-                    Text(selectedMovieDirectoryURL == nil ? "Select a directory first." : "No movies found in this directory.")
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 10)
+                    VStack(alignment: .center, spacing: 0) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .imageScale(.large)
+                            .foregroundColor(Color(.systemGray))
+                        Text(selectedMovieDirectoryURL == nil ? "Select a directory first." : "No movies found in this directory.")
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 10)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .center)
                 } else {
                     LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(movieFiles, id: \.self) { movieURL in
@@ -95,29 +46,44 @@ struct MovieSelectionSettingsView: View {
                     }
                     .padding(.vertical, 8)
                 }
+            } header: {
+                Text("Select Movie")
             }
         }
-        .navigationTitle("Movie Selection")
-        .onAppear() {
-            loadMovies(from: selectedMovieDirectoryURL)
+        .formStyle(.grouped) // This applies the native macOS Settings style!
+        .onAppear {
+            setupDirectoryHandling(for: selectedMovieDirectoryURL)
         }
         .onChange(of: selectedMovieDirectoryURL) { _, newURL in
-            loadMovies(from: newURL)
+            setupDirectoryHandling(for: newURL)
         }
         .onDisappear {
-            // Close access
+            directoryMonitor.stopMonitoring()
             currentlyAccessedFolder?.stopAccessingSecurityScopedResource()
         }
     }
     
+    // MARK: - Directory Handling
+    
+    private func setupDirectoryHandling(for url: URL?) {
+        loadMovies(from: url)
+        
+        if let url = url {
+            directoryMonitor.startMonitoring(url: url) {
+                // Reload movies when the folder contents change
+                loadMovies(from: url)
+            }
+        } else {
+            directoryMonitor.stopMonitoring()
+        }
+    }
+    
     private func loadMovies(from url: URL?) {
-        // Close access for old directory
         currentlyAccessedFolder?.stopAccessingSecurityScopedResource()
         movieFiles = []
         
         guard let url = url else { return }
         
-        // Request access for new directory
         let hasAccess = url.startAccessingSecurityScopedResource()
         if hasAccess {
             currentlyAccessedFolder = url
@@ -141,4 +107,13 @@ struct MovieSelectionSettingsView: View {
             print("Failed to read directory: \(error.localizedDescription)")
         }
     }
+}
+
+#Preview {
+    @Previewable @State var dummyDirectoryURL: URL? = URL(fileURLWithPath: "/dev/null")
+    @Previewable @State var dummyVideoURL: URL? = Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
+    MovieSelectionSettingsView(
+        selectedMovieDirectoryURL: $dummyDirectoryURL,
+        selectedMovieURL: $dummyVideoURL
+    )
 }

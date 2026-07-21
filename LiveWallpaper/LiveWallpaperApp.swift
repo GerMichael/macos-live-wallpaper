@@ -11,8 +11,19 @@ import SwiftUI
 struct LiveWallpaperApp: App {
     // Load settings once at the App level
     @State private var settings = SettingsService.loadSettings()
-    @StateObject private var wallpaperManagerService = WallpaperManagerService()
+    @StateObject private var wallpaperManagerService: WallpaperManager
     @Environment(\.openWindow) private var openWindow
+    
+    init() {
+            // Load settings immediately on app launch
+            let loadedSettings = SettingsService.loadSettings()
+            
+            // Initialize state with the loaded settings
+            _settings = State(initialValue: loadedSettings)
+            
+            // Feed the initial selected movie directly into the Wallpaper Manager
+            _wallpaperManagerService = StateObject(wrappedValue: WallpaperManager(initialURL: loadedSettings.selectedMovie))
+        }
     
     var body: some Scene {
         MenuBarExtra("Live Wallpaper", systemImage: "photo.tv") {
@@ -36,11 +47,9 @@ struct LiveWallpaperApp: App {
                 .onChange(of: settings.selectedMovie) { _, newVideoUrl in
                     wallpaperManagerService.updateVideo(url: newVideoUrl)
                 }
-                .onAppear {
-                    wallpaperManagerService.updateVideo(url: settings.selectedMovie)
-                }
         }
         .defaultPosition(.center)
         .windowStyle(.hiddenTitleBar)
     }
 }
+
