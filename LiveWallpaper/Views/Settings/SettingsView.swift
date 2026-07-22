@@ -37,15 +37,15 @@ struct SettingsView: View {
                             case .general:
                                 GeneralSettingsView(launchAtLogin: $launchSettings.launchAtLogin)
                             case .movieSelection:
-                                MovieSelectionSettingsView(
-                                    selectedMovieDirectoryURL: $settings.moviesDirectory,
-                                    selectedMovieURL: $settings.selectedMovie
-                                ).onChange(of: settings.moviesDirectory) { _, newValue in
+                                SettingsWallpaperSelectionView(
+                                    selectedMovieDirectoryURL: $settings.wallpaperDirectory,
+                                    selectedMovieURL: $settings.selectedWallpaper
+                                ).onChange(of: settings.wallpaperDirectory) { _, newValue in
                                     print("Selected URL: \(newValue?.absoluteString ?? "nil")")
-                                    SettingsService.storeSettings(settings: settings)
-                                }.onChange(of: settings.selectedMovie) { _, newValue in
+                                    SettingsProvider.storeSettings(settings: settings)
+                                }.onChange(of: settings.selectedWallpaper) { _, newValue in
                                     print("Selected URL: \(newValue?.absoluteString ?? "nil")")
-                                    SettingsService.storeSettings(settings: settings)
+                                    SettingsProvider.storeSettings(settings: settings)
                                 }
                             }
                     }
@@ -60,11 +60,12 @@ struct SettingsView: View {
 }
 
 #Preview {
-    @Previewable @State var settings = Settings(
-        moviesDirectory: URL(fileURLWithPath: "/dev/null"),
-        selectedMovie: Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
+    @Previewable @State var settingsAllSelected = Settings(
+        wallpaperDirectory: Bundle.main.resourceURL,
+        selectedWallpaper: Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
     )
     SettingsView(
-        settings: $settings
+        settings: $settingsAllSelected
     )
+    
 }

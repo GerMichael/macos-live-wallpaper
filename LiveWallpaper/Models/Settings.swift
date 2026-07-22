@@ -8,6 +8,8 @@
 import Foundation
 
 struct Settings {
-    var moviesDirectory: URL?
-    var selectedMovie: URL?
+    var wallpaperDirectory: URL?
+    var selectedWallpaper: URL?
+    var suffleIntervalInMin: Double?
+    var autoFadeDurationInSec: Double?
 }

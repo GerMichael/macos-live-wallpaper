@@ -16,7 +16,7 @@ class VideoWallpaperView: NSView {
         let playerLayer = AVPlayerLayer()
         playerLayer.videoGravity = .resizeAspectFill // Fills the whole screen
         playerLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        playerLayer.backgroundColor = NSColor.black.cgColor
+        playerLayer.backgroundColor = NSColor.clear.cgColor
         
         self.layer = playerLayer
     }

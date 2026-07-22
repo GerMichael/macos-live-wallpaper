@@ -1,5 +1,5 @@
 //
-//  VideoThumbnailView.swift
+//  SettingsVideoThumbnailView.swift
 //  LiveWallpaper
 //
 //  Created by Michael Gerischer on 21.07.26.
@@ -8,7 +8,7 @@
 import SwiftUI
 import AVFoundation
 
-struct VideoThumbnailView: View {
+struct SettingsVideoThumbnailView: View {
     let url: URL
     @State private var thumbnail: NSImage?
 
@@ -34,15 +34,26 @@ struct VideoThumbnailView: View {
     }
 
     private func generateThumbnail() async {
+        let isAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if isAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         
-        // Downsample the image heavily to save memory! We only need a tiny grid thumbnail.
+        // Downsample the image heavily to save memory
         generator.maximumSize = CGSize(width: 300, height: 300)
         
+        // Allow decoding the nearest keyframe (I-frame) directly.
+        // This avoids decoding preceding frame sequences and prevents decoder saturation.
+        generator.requestedTimeToleranceBefore = .positiveInfinity
+        generator.requestedTimeToleranceAfter = .positiveInfinity
+        
         do {
-            // Try to grab a frame 0.5 seconds in (so it's not just a black fade-in frame)
             let time = CMTime(seconds: 0.5, preferredTimescale: 600)
             let (cgImage, _) = try await generator.image(at: time)
             
@@ -50,7 +61,6 @@ struct VideoThumbnailView: View {
                 self.thumbnail = NSImage(cgImage: cgImage, size: .zero)
             }
         } catch {
-            // If it fails (e.g., video is shorter than 0.5s), fallback to the very first frame
             if let (cgImage, _) = try? await generator.image(at: .zero) {
                 await MainActor.run {
                     self.thumbnail = NSImage(cgImage: cgImage, size: .zero)
@@ -58,4 +68,9 @@ struct VideoThumbnailView: View {
             }
         }
     }
+}
+
+#Preview {
+    let url = Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
+    SettingsVideoThumbnailView(url: url!)
 }

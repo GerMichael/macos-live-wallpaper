@@ -10,19 +10,19 @@ import SwiftUI
 @main
 struct LiveWallpaperApp: App {
     // Load settings once at the App level
-    @State private var settings = SettingsService.loadSettings()
-    @StateObject private var wallpaperManagerService: WallpaperManager
+    @State private var settings = SettingsProvider.loadSettings()
+    @StateObject private var wallpaperManagerService: WallpaperWindowManager
     @Environment(\.openWindow) private var openWindow
     
     init() {
             // Load settings immediately on app launch
-            let loadedSettings = SettingsService.loadSettings()
+            let loadedSettings = SettingsProvider.loadSettings()
             
             // Initialize state with the loaded settings
             _settings = State(initialValue: loadedSettings)
             
             // Feed the initial selected movie directly into the Wallpaper Manager
-            _wallpaperManagerService = StateObject(wrappedValue: WallpaperManager(initialURL: loadedSettings.selectedMovie))
+            _wallpaperManagerService = StateObject(wrappedValue: WallpaperWindowManager(initialURL: loadedSettings.selectedWallpaper))
         }
     
     var body: some Scene {
@@ -44,7 +44,7 @@ struct LiveWallpaperApp: App {
             // Pass the binding so changes reflect here
             SettingsView(settings: $settings)
                 .frame(minWidth: 600, minHeight: 400)
-                .onChange(of: settings.selectedMovie) { _, newVideoUrl in
+                .onChange(of: settings.selectedWallpaper) { _, newVideoUrl in
                     wallpaperManagerService.updateVideo(url: newVideoUrl)
                 }
         }

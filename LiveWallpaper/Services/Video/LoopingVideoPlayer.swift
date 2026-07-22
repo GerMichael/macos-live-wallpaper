@@ -12,10 +12,18 @@ import Foundation
 class LoopingVideoPlayer {
     let player = AVQueuePlayer()
     var looper: AVPlayerLooper?
+    
+    // Store the URL so we can recover the video if the player fails during sleep
+    private let videoURL: URL
 
     init(url: URL) {
+        self.videoURL = url
+        setupPlayer()
+    }
+    
+    private func setupPlayer() {
         player.isMuted = true
-        let item = AVPlayerItem(url: url)
+        let item = AVPlayerItem(url: videoURL)
         looper = AVPlayerLooper(
             player: player,
             templateItem: item
@@ -23,6 +31,17 @@ class LoopingVideoPlayer {
     }
 
     func play() {
+        // 1. Check if the media services died during a deep sleep
+        if player.status == .failed || player.currentItem?.status == .failed {
+            stop()
+            setupPlayer()
+        }
+        
+        // 2. Force the hardware decoder to render a new frame.
+        // This clears the "black screen" by forcing a pipeline refresh.
+        let currentTime = player.currentTime()
+        player.seek(to: currentTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        
         player.play()
     }
     

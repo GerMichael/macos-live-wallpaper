@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import UniformTypeIdentifiers
 
 
-struct MovieSelectionSettingsView: View {
+struct SettingsWallpaperSelectionView: View {
     @Binding var selectedMovieDirectoryURL: URL?
     @Binding var selectedMovieURL: URL?
     
@@ -17,7 +17,7 @@ struct MovieSelectionSettingsView: View {
     var body: some View {
         Form {
             Section {
-                DirectorySelectorView(selectedDirectoryURL: $selectedMovieDirectoryURL)
+                ToolsDirectorySelectorView(selectedDirectoryURL: $selectedMovieDirectoryURL)
             } header: {
                 Text("Selected Movie Directory")
             }
@@ -37,7 +37,7 @@ struct MovieSelectionSettingsView: View {
                 } else {
                     LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(movieFiles, id: \.self) { movieURL in
-                            MovieGridItemView(
+                            SettingsWallpaperPreviewItemView(
                                 movieURL: movieURL,
                                 isSelected: selectedMovieURL == movieURL,
                                 onSelect: { selectedMovieURL = movieURL }
@@ -110,10 +110,20 @@ struct MovieSelectionSettingsView: View {
 }
 
 #Preview {
-    @Previewable @State var dummyDirectoryURL: URL? = URL(fileURLWithPath: "/dev/null")
+    @Previewable @State var isDirSelected = true
+    @Previewable @State var isVideoSelected = true
+    @Previewable @State var dummyDirectoryURL: URL? = Bundle.main.resourceURL
+    @Previewable @State var dummyNilDirectoryURL: URL? = nil
     @Previewable @State var dummyVideoURL: URL? = Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
-    MovieSelectionSettingsView(
-        selectedMovieDirectoryURL: $dummyDirectoryURL,
-        selectedMovieURL: $dummyVideoURL
-    )
+    @Previewable @State var dummyNilVideoURL: URL? = nil
+    VStack{
+        HStack{
+            Toggle("Directory Selected", isOn: $isDirSelected).toggleStyle(.switch)
+            Toggle("Video Selected", isOn: $isVideoSelected).toggleStyle(.switch)
+        }
+        SettingsWallpaperSelectionView(
+            selectedMovieDirectoryURL: isDirSelected ? $dummyDirectoryURL : $dummyNilDirectoryURL,
+            selectedMovieURL: isVideoSelected ? $dummyVideoURL : $dummyNilVideoURL,
+        )
+    }
 }

@@ -1,5 +1,5 @@
 //
-//  MovieGridItemView.swift
+//  WallpaperPreviewItemView.swift
 //  LiveWallpaper
 //
 //  Created by Michael Gerischer on 21.07.26.
@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct MovieGridItemView: View {
+struct SettingsWallpaperPreviewItemView: View {
     let movieURL: URL
     let isSelected: Bool
     let onSelect: () -> Void
     
     var body: some View {
         VStack {
-            VideoThumbnailView(url: movieURL)
+            SettingsVideoThumbnailView(url: movieURL)
                 .frame(height: 80)
                 .cornerRadius(6)
                 .clipped()
@@ -39,9 +39,13 @@ struct MovieGridItemView: View {
 }
 
 #Preview {
-    MovieGridItemView(
-        movieURL: Bundle.main.url(forResource: "example_video", withExtension: ".mp4")!,
-        isSelected: false,
-        onSelect: {}
-    )
+    @Previewable @State var isSelected: Bool = false
+    VStack{
+        Toggle("Is Selected", isOn: $isSelected).toggleStyle(.switch)
+        SettingsWallpaperPreviewItemView(
+            movieURL: Bundle.main.url(forResource: "example_video", withExtension: ".mp4")!,
+            isSelected: isSelected,
+            onSelect: {}
+        ).frame(width: 250, height: 140)
+    }.padding()
 }
