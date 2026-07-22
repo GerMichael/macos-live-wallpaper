@@ -120,21 +120,7 @@ final class WallpaperWindowManager: ObservableObject {
 
             window.ignoresMouseEvents = true
             
-            // Access security-scoped resources safely to perform reachability check
-            let isSecureAccessStarted = currentURL?.startAccessingSecurityScopedResource() ?? false
-            let isReachable = (try? currentURL?.checkResourceIsReachable()) ?? false
-            if isSecureAccessStarted {
-                currentURL?.stopAccessingSecurityScopedResource()
-            }
-            
-            if isReachable {
-                window.isOpaque = true
-                window.backgroundColor = .black
-            } else {
-                window.isOpaque = false
-                window.backgroundColor = .clear
-            }
-            
+            updateWindowAppearance(window)
 
             let playerView = VideoWallpaperView(frame: screen.frame)
             window.contentView = playerView
@@ -149,20 +135,64 @@ final class WallpaperWindowManager: ObservableObject {
         evaluateAllVisibilities()
     }
 
+    private func updateWindowAppearance(_ window: NSWindow) {
+        // Access security-scoped resources safely to perform reachability check
+        let isSecureAccessStarted = currentURL?.startAccessingSecurityScopedResource() ?? false
+        let isReachable = (try? currentURL?.checkResourceIsReachable()) ?? false
+        if isSecureAccessStarted {
+            currentURL?.stopAccessingSecurityScopedResource()
+        }
+
+        if isReachable {
+            window.isOpaque = true
+            window.backgroundColor = .black
+        } else {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+        }
+    }
+
     // MARK: - Public API
 
     func updateVideo(url: URL?) {
 
         currentURL = url
 
-        // Detach active player from layers first so hardware decode surfaces are freed immediately
-        detachPlayerFromWindows()
+        // Ensure window background is black so fading the content view reveals black
+        for window in windows {
+            window.backgroundColor = .black
+        }
 
-        playbackController.updateVideo(url: url)
+        // Quickly fade out the video view to black
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            for window in windows {
+                window.contentView?.animator().alphaValue = 0.0
+            }
+        }, completionHandler: { [weak self] in
+            guard let self = self else { return }
 
-        attachPlayerToWindows()
+            // Detach active player from layers first so hardware decode surfaces are freed immediately
+            self.detachPlayerFromWindows()
 
-        evaluateAllVisibilities()
+            self.playbackController.updateVideo(url: url)
+
+            for window in self.windows {
+                self.updateWindowAppearance(window)
+            }
+
+            self.attachPlayerToWindows()
+
+            self.evaluateAllVisibilities()
+
+            // Quickly fade the new video view back in from black
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.15
+                for window in self.windows {
+                    window.contentView?.animator().alphaValue = 1.0
+                }
+            }
+        })
     }
 
     // MARK: - Helpers
