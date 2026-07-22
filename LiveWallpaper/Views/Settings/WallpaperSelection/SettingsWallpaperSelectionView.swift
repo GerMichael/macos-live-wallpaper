@@ -90,20 +90,8 @@ struct SettingsWallpaperSelectionView: View {
         }
         
         do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(
-                at: url,
-                includingPropertiesForKeys: [.contentTypeKey],
-                options: .skipsHiddenFiles
-            )
-            
-            self.movieFiles = fileURLs.filter { fileURL in
-                guard let resourceValues = try? fileURL.resourceValues(forKeys: [.contentTypeKey]),
-                      let contentType = resourceValues.contentType else {
-                    return false
-                }
-                return contentType.conforms(to: .audiovisualContent)
-            }
-        } catch {
+            movieFiles = try getDirectoryItems(from: url, conformsToContentType: .audiovisualContent)
+        } catch let error {
             print("Failed to read directory: \(error.localizedDescription)")
         }
     }

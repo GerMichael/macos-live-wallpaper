@@ -27,14 +27,14 @@ class SettingsProvider {
             selectedWallpaper = URL.init(string: filename)
         }
         
-        let suffleIntervalInMin: Double? = UserDefaults.standard.double(forKey: settingKeySuffleIntervalInMin)
-        let autoFadeDurationInSec: Double? = UserDefaults.standard.double(forKey: settingKeyAutoFadeDurationInSec)
+        let suffleIntervalInMin: Int? = UserDefaults.standard.integer(forKey: settingKeySuffleIntervalInMin)
+        let autoFadeDurationInSec: Int? = UserDefaults.standard.integer(forKey: settingKeyAutoFadeDurationInSec)
         
         let loaded_settings = Settings(
             wallpaperDirectory: wallpaperDirecotory,
             selectedWallpaper: selectedWallpaper,
-            suffleIntervalInMin: suffleIntervalInMin,
             autoFadeDurationInSec: autoFadeDurationInSec,
+            shuffleIntervalInMin: suffleIntervalInMin,
         )
         print("loaded \(loaded_settings)")
         return loaded_settings
@@ -44,7 +44,7 @@ class SettingsProvider {
         print("storing \(settings)")
         handleStoringBookmark(for: settings.wallpaperDirectory, key: settingKeyWallpaperDirectory)
         handleStoringValue(for: settings.selectedWallpaper?.absoluteString, key: settingKeySelectedWallpaperFilename)
-        handleStoringValue(for: settings.suffleIntervalInMin, key: settingKeySuffleIntervalInMin)
+        handleStoringValue(for: settings.shuffleIntervalInMin, key: settingKeySuffleIntervalInMin)
         handleStoringValue(for: settings.autoFadeDurationInSec, key: settingKeyAutoFadeDurationInSec)
     }
     

@@ -7,9 +7,9 @@
 
 import Foundation
 
-struct Settings {
+struct Settings: Equatable {
     var wallpaperDirectory: URL?
     var selectedWallpaper: URL?
-    var suffleIntervalInMin: Double?
-    var autoFadeDurationInSec: Double?
+    var autoFadeDurationInSec: Int?
+    var shuffleIntervalInMin: Int?
 }

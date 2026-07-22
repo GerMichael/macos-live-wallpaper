@@ -10,7 +10,7 @@ import SwiftUI
 
 enum SettingsMenu: String, CaseIterable, Identifiable {
     case general = "General"
-    case movieSelection = "Movie Selection"
+    case movieSelection = "Wallpapers"
     
     var id: Self { self }
 }
@@ -35,18 +35,16 @@ struct SettingsView: View {
                     if let selectedMenu {
                         switch selectedMenu {
                             case .general:
-                                GeneralSettingsView(launchAtLogin: $launchSettings.launchAtLogin)
+                                GeneralSettingsView(
+                                    launchAtLogin: $launchSettings.launchAtLogin,
+                                    autoFadeDurationInSec: $settings.autoFadeDurationInSec,
+                                    shuffleIntervalInMin: $settings.shuffleIntervalInMin
+                                )
                             case .movieSelection:
                                 SettingsWallpaperSelectionView(
                                     selectedMovieDirectoryURL: $settings.wallpaperDirectory,
                                     selectedMovieURL: $settings.selectedWallpaper
-                                ).onChange(of: settings.wallpaperDirectory) { _, newValue in
-                                    print("Selected URL: \(newValue?.absoluteString ?? "nil")")
-                                    SettingsProvider.storeSettings(settings: settings)
-                                }.onChange(of: settings.selectedWallpaper) { _, newValue in
-                                    print("Selected URL: \(newValue?.absoluteString ?? "nil")")
-                                    SettingsProvider.storeSettings(settings: settings)
-                                }
+                                )
                             }
                     }
                     
@@ -56,6 +54,9 @@ struct SettingsView: View {
             }
         }
         .navigationTitle(selectedMenu?.rawValue ?? "Settings")
+        .onChange(of: settings) { _, newSettings in
+            SettingsProvider.storeSettings(settings: newSettings)
+        }
     }
 }
 
