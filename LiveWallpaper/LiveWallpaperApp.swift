@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct LiveWallpaperApp: App {
     // Load settings once at the App level
     @State private var settings = SettingsProvider.loadSettings()
+    @State private var wallpapers: [URL] = []
     @StateObject private var wallpaperManagerService: WallpaperWindowManager
     @StateObject private var wallpaperShuffler: WallpaperShuffler
     @Environment(\.openWindow) private var openWindow
@@ -19,6 +21,7 @@ struct LiveWallpaperApp: App {
         let loadedSettings = SettingsProvider.loadSettings()
             
         _settings = State(initialValue: loadedSettings)
+        _wallpapers = State(initialValue: Self.retrieveMediaURLs(from: loadedSettings.wallpaperDirectory))
         
         let windowManager = WallpaperWindowManager(initialURL: loadedSettings.selectedWallpaper)
         _wallpaperManagerService = StateObject(wrappedValue: windowManager)
@@ -37,19 +40,13 @@ struct LiveWallpaperApp: App {
     }
     
     var body: some Scene {
-        MenuBarExtra("Live Wallpaper", systemImage: "photo.tv") {
-            Button("Settings...") {
+        MainMenu(selectedWallpaper: $settings.selectedWallpaper, wallpapers: wallpapers)
+            .onOpenSettings {
                 openWindow(id: "settingsWindow")
             }
-            .keyboardShortcut(",", modifiers: .command)
-            
-            Divider()
-            
-            Button("Quit Live Wallpaper") {
-                NSApplication.shared.terminate(nil)
+            .onChange(of: settings.selectedWallpaper) { _, newVideoUrl in
+                wallpaperManagerService.updateVideo(url: newVideoUrl)
             }
-            .keyboardShortcut("q", modifiers: .command)
-        }
         
         Window("Settings", id: "settingsWindow") {
             SettingsView(settings: $settings)
@@ -59,6 +56,7 @@ struct LiveWallpaperApp: App {
                 }
                 .onChange(of: settings.wallpaperDirectory) { _, newDirectory in
                     wallpaperShuffler.updateWallpaperDirectory(newDirectory)
+                    wallpapers = Self.retrieveMediaURLs(from: newDirectory)
                 }
                 .onChange(of: settings.shuffleIntervalInMin) { _, newInterval in
                     wallpaperShuffler.updateShuffleInterval(intervalInMin: newInterval)
@@ -66,5 +64,23 @@ struct LiveWallpaperApp: App {
         }
         .defaultPosition(.center)
         .windowStyle(.hiddenTitleBar)
+    }
+    
+    private static func retrieveMediaURLs(from url: URL?) -> [URL] {
+        guard let url = url else { return [] }
+        
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        do {
+            return try getDirectoryItems(from: url, conformsToContentType: .audiovisualContent)
+        } catch {
+            print("Failed to read directory: \(error.localizedDescription)")
+            return []
+        }
     }
 }

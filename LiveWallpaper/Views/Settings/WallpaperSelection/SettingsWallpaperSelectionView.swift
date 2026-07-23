@@ -66,19 +66,19 @@ struct SettingsWallpaperSelectionView: View {
     // MARK: - Directory Handling
     
     private func setupDirectoryHandling(for url: URL?) {
-        loadMovies(from: url)
+        retrieveMediaURLs(from: url)
         
         if let url = url {
             directoryMonitor.startMonitoring(url: url) {
                 // Reload movies when the folder contents change
-                loadMovies(from: url)
+                retrieveMediaURLs(from: url)
             }
         } else {
             directoryMonitor.stopMonitoring()
         }
     }
     
-    private func loadMovies(from url: URL?) {
+    private func retrieveMediaURLs(from url: URL?) {
         currentlyAccessedFolder?.stopAccessingSecurityScopedResource()
         movieFiles = []
         
