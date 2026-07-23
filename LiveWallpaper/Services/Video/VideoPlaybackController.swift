@@ -8,7 +8,7 @@ import AVFoundation
 
 final class VideoPlaybackController {
 
-    private var loopingPlayer: LoopingVideoPlayer?
+    private var loopingPlayer: VideoLoopPlayer?
 
     var player: AVQueuePlayer? {
         loopingPlayer?.player
@@ -22,7 +22,7 @@ final class VideoPlaybackController {
             return
         }
 
-        loopingPlayer = LoopingVideoPlayer(url: url)
+        loopingPlayer = VideoLoopPlayer(url: url)
     }
 
     func play() {

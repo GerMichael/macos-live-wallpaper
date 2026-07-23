@@ -9,7 +9,7 @@ import AVKit
 import Foundation
 
 
-class LoopingVideoPlayer {
+class VideoLoopPlayer {
     let player = AVQueuePlayer()
     var looper: AVPlayerLooper?
     
