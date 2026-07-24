@@ -10,19 +10,18 @@ import SwiftUI
 
 enum SettingsMenu: String, CaseIterable, Identifiable {
     case general = "General"
-    case movieSelection = "Wallpapers"
+    case movieSelection = "Select Wallpaper"
     
     var id: Self { self }
 }
 
 struct SettingsView: View {
     @State private var selectedMenu: Optional<SettingsMenu> = .general
-    @Binding var settings: Settings
-    
-    // Add the launch settings object
-    @StateObject private var launchSettings = LaunchSettings()
+    @Environment(SettingsStore.self) var settingsStore
     
     var body: some View {
+        @Bindable var settingsStore = settingsStore
+        
         NavigationSplitView {
             List(selection: $selectedMenu) {
                 ForEach(SettingsMenu.allCases) { menu in
@@ -35,16 +34,9 @@ struct SettingsView: View {
                     if let selectedMenu {
                         switch selectedMenu {
                             case .general:
-                                GeneralSettingsView(
-                                    launchAtLogin: $launchSettings.launchAtLogin,
-                                    autoFadeDurationInSec: $settings.autoFadeDurationInSec,
-                                    shuffleIntervalInMin: $settings.shuffleIntervalInMin
-                                )
+                                GeneralSettingsView()
                             case .movieSelection:
-                                SettingsWallpaperSelectionView(
-                                    selectedMovieDirectoryURL: $settings.wallpaperDirectory,
-                                    selectedMovieURL: $settings.selectedWallpaper
-                                )
+                                SettingsWallpaperSelectionView()
                             }
                     }
                     
@@ -54,9 +46,6 @@ struct SettingsView: View {
             }
         }
         .navigationTitle(selectedMenu?.rawValue ?? "Settings")
-        .onChange(of: settings) { _, newSettings in
-            SettingsProvider.storeSettings(settings: newSettings)
-        }
     }
 }
 
@@ -65,8 +54,6 @@ struct SettingsView: View {
         wallpaperDirectory: Bundle.main.resourceURL,
         selectedWallpaper: Bundle.main.url(forResource: "example_video", withExtension: ".mp4")
     )
-    SettingsView(
-        settings: $settingsAllSelected
-    )
+    SettingsView().environment(SettingsStore(settings: settingsAllSelected))
     
 }

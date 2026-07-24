@@ -11,17 +11,19 @@ import UniformTypeIdentifiers
 @main
 struct LiveWallpaperApp: App {
     // Load settings once at the App level
-    @State private var settings = SettingsProvider.loadSettings()
+    @State private var settingsStore: SettingsStore
     @State private var wallpapers: [URL] = []
     @StateObject private var wallpaperManagerService: WallpaperWindowManager
     @StateObject private var wallpaperShuffler: WallpaperShuffler
     @Environment(\.openWindow) private var openWindow
     
+    private let wallpaperUrlProvider = WallpaperUrlProvider()
+    
     init() {
         let loadedSettings = SettingsProvider.loadSettings()
             
-        _settings = State(initialValue: loadedSettings)
-        _wallpapers = State(initialValue: Self.retrieveMediaURLs(from: loadedSettings.wallpaperDirectory))
+        _settingsStore = State(initialValue: SettingsStore(settings: loadedSettings))
+        _wallpapers = State(initialValue: wallpaperUrlProvider.retrieveMediaURLs(from: loadedSettings.wallpaperDirectory))
         
         let windowManager = WallpaperWindowManager(initialURL: loadedSettings.selectedWallpaper)
         _wallpaperManagerService = StateObject(wrappedValue: windowManager)
@@ -40,47 +42,33 @@ struct LiveWallpaperApp: App {
     }
     
     var body: some Scene {
-        MainMenu(selectedWallpaper: $settings.selectedWallpaper, wallpapers: wallpapers)
-            .onOpenSettings {
-                openWindow(id: "settingsWindow")
+        Group {
+            MainMenu(selectedWallpaper: $settingsStore.current.selectedWallpaper, wallpapers: wallpapers)
+                .onOpenSettings {
+                    openWindow(id: "settingsWindow")
+                }
+            
+            Window("Settings", id: "settingsWindow") {
+                SettingsView()
+                    .frame(minWidth: 600, minHeight: 400)
             }
-            .onChange(of: settings.selectedWallpaper) { _, newVideoUrl in
-                wallpaperManagerService.updateVideo(url: newVideoUrl)
-            }
-        
-        Window("Settings", id: "settingsWindow") {
-            SettingsView(settings: $settings)
-                .frame(minWidth: 600, minHeight: 400)
-                .onChange(of: settings.selectedWallpaper) { _, newVideoUrl in
-                    wallpaperManagerService.updateVideo(url: newVideoUrl)
-                }
-                .onChange(of: settings.wallpaperDirectory) { _, newDirectory in
-                    wallpaperShuffler.updateWallpaperDirectory(newDirectory)
-                    wallpapers = Self.retrieveMediaURLs(from: newDirectory)
-                }
-                .onChange(of: settings.shuffleIntervalInMin) { _, newInterval in
-                    wallpaperShuffler.updateShuffleInterval(intervalInMin: newInterval)
-                }
+            .defaultPosition(.center)
+            .windowStyle(.hiddenTitleBar)
         }
-        .defaultPosition(.center)
-        .windowStyle(.hiddenTitleBar)
-    }
-    
-    private static func retrieveMediaURLs(from url: URL?) -> [URL] {
-        guard let url = url else { return [] }
-        
-        let hasAccess = url.startAccessingSecurityScopedResource()
-        defer {
-            if hasAccess {
-                url.stopAccessingSecurityScopedResource()
-            }
+        .environment(settingsStore)
+        .environment(wallpaperUrlProvider)
+        .onChange(of: settingsStore.current) { _, newSettings in
+            SettingsProvider.storeSettings(settings: newSettings)
         }
-        
-        do {
-            return try getDirectoryItems(from: url, conformsToContentType: .audiovisualContent)
-        } catch {
-            print("Failed to read directory: \(error.localizedDescription)")
-            return []
+        .onChange(of: settingsStore.current.selectedWallpaper) { _, newVideoUrl in
+            wallpaperManagerService.updateVideo(url: newVideoUrl)
+        }
+        .onChange(of: settingsStore.current.wallpaperDirectory) { _, newDirectory in
+            wallpaperShuffler.updateWallpaperDirectory(newDirectory)
+            wallpapers = wallpaperUrlProvider.retrieveMediaURLs(from: newDirectory)
+        }
+        .onChange(of: settingsStore.current.shuffleIntervalInMin) { _, newInterval in
+            wallpaperShuffler.updateShuffleInterval(intervalInMin: newInterval)
         }
     }
 }

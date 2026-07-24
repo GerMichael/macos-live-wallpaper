@@ -5,19 +5,21 @@ import UniformTypeIdentifiers
 
 
 struct SettingsWallpaperSelectionView: View {
-    @Binding var selectedMovieDirectoryURL: URL?
-    @Binding var selectedMovieURL: URL?
+    @Environment(SettingsStore.self) private var settingsStore
     
     @State private var movieFiles: [URL] = []
     @State private var currentlyAccessedFolder: URL?
     @State private var directoryMonitor = DirectoryMonitor()
+    @Environment(WallpaperUrlProvider.self) private var wallpaperUrlProvider
     
     let columns = [GridItem(.adaptive(minimum: 120, maximum: 160), spacing: 16)]
     
     var body: some View {
+        @Bindable var settingsStore = settingsStore
+        
         Form {
             Section {
-                ToolsDirectorySelectorView(selectedDirectoryURL: $selectedMovieDirectoryURL)
+                ToolsDirectorySelectorView(selectedDirectoryURL: $settingsStore.current.wallpaperDirectory)
             } header: {
                 Text("Selected Movie Directory")
             }
@@ -28,7 +30,7 @@ struct SettingsWallpaperSelectionView: View {
                         Image(systemName: "exclamationmark.triangle")
                             .imageScale(.large)
                             .foregroundColor(Color(.systemGray))
-                        Text(selectedMovieDirectoryURL == nil ? "Select a directory first." : "No movies found in this directory.")
+                        Text(settingsStore.current.wallpaperDirectory == nil ? "Select a directory first." : "No movies found in this directory.")
                             .foregroundColor(.secondary)
                             .padding(.vertical, 10)
                     }
@@ -39,8 +41,8 @@ struct SettingsWallpaperSelectionView: View {
                         ForEach(movieFiles, id: \.self) { movieURL in
                             SettingsWallpaperPreviewItemView(
                                 movieURL: movieURL,
-                                isSelected: selectedMovieURL == movieURL,
-                                onSelect: { selectedMovieURL = movieURL }
+                                isSelected: settingsStore.current.selectedWallpaper == movieURL,
+                                onSelect: { settingsStore.current.selectedWallpaper = movieURL }
                             )
                         }
                     }
@@ -52,47 +54,40 @@ struct SettingsWallpaperSelectionView: View {
         }
         .formStyle(.grouped) // This applies the native macOS Settings style!
         .onAppear {
-            setupDirectoryHandling(for: selectedMovieDirectoryURL)
+            if let selectedWallpaper = settingsStore.current.selectedWallpaper {
+                wallpaperUrlProvider.startAccessingSecurityScopedResource(at: selectedWallpaper)
+                setupDirectoryHandling(for: settingsStore.current.wallpaperDirectory)
+            }
         }
-        .onChange(of: selectedMovieDirectoryURL) { _, newURL in
-            setupDirectoryHandling(for: newURL)
+        .onChange(of: settingsStore.current.wallpaperDirectory) { _, newURL in
+            wallpaperUrlProvider.stopAccessingSecurityScopedResource()
+            if let newURL {
+                wallpaperUrlProvider.startAccessingSecurityScopedResource(at: newURL)
+                setupDirectoryHandling(for: newURL)
+            }
         }
         .onDisappear {
             directoryMonitor.stopMonitoring()
-            currentlyAccessedFolder?.stopAccessingSecurityScopedResource()
+            wallpaperUrlProvider.stopAccessingSecurityScopedResource()
         }
     }
     
     // MARK: - Directory Handling
     
     private func setupDirectoryHandling(for url: URL?) {
-        retrieveMediaURLs(from: url)
+        wallpaperUrlProvider.stopAccessingSecurityScopedResource()
+        if let url {
+            wallpaperUrlProvider.startAccessingSecurityScopedResource(at: url)
+        }
+        movieFiles = wallpaperUrlProvider.retrieveMediaURLs(from: url)
         
         if let url = url {
             directoryMonitor.startMonitoring(url: url) {
                 // Reload movies when the folder contents change
-                retrieveMediaURLs(from: url)
+                movieFiles = wallpaperUrlProvider.retrieveMediaURLs(from: url)
             }
         } else {
             directoryMonitor.stopMonitoring()
-        }
-    }
-    
-    private func retrieveMediaURLs(from url: URL?) {
-        currentlyAccessedFolder?.stopAccessingSecurityScopedResource()
-        movieFiles = []
-        
-        guard let url = url else { return }
-        
-        let hasAccess = url.startAccessingSecurityScopedResource()
-        if hasAccess {
-            currentlyAccessedFolder = url
-        }
-        
-        do {
-            movieFiles = try getDirectoryItems(from: url, conformsToContentType: .audiovisualContent)
-        } catch let error {
-            print("Failed to read directory: \(error.localizedDescription)")
         }
     }
 }
@@ -109,9 +104,7 @@ struct SettingsWallpaperSelectionView: View {
             Toggle("Directory Selected", isOn: $isDirSelected).toggleStyle(.switch)
             Toggle("Video Selected", isOn: $isVideoSelected).toggleStyle(.switch)
         }
-        SettingsWallpaperSelectionView(
-            selectedMovieDirectoryURL: isDirSelected ? $dummyDirectoryURL : $dummyNilDirectoryURL,
-            selectedMovieURL: isVideoSelected ? $dummyVideoURL : $dummyNilVideoURL,
-        )
+        SettingsWallpaperSelectionView()
+            .environment(SettingsStore(settings: Settings()))
     }
 }

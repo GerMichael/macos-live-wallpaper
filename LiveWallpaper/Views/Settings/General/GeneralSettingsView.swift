@@ -8,10 +8,9 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
-    @Binding var launchAtLogin: Bool
-    @Binding var autoFadeDurationInSec: Int?
-    @Binding var shuffleIntervalInMin: Int?
-
+    @Environment(SettingsStore.self) var settingsStore
+    @StateObject private var launchSettings = LaunchSettings()
+    
     private let maxCrossFade: Double = 5.0
     
     private let shuffleIntervalDefaults: [Int: String] = [
@@ -25,16 +24,17 @@ struct GeneralSettingsView: View {
     
     private var fadeDurationBinding: Binding<Double> {
         Binding<Double>(
-            get: { Double(autoFadeDurationInSec ?? 0) },
-            set: { autoFadeDurationInSec = Int($0) }
+            get: { Double(settingsStore.current.autoFadeDurationInSec ?? 0) },
+            set: { settingsStore.current.autoFadeDurationInSec = Int($0) }
         )
     }
     
     var body: some View {
+        @Bindable var settingsStore = settingsStore
         Form {
             Section {
                 VStack {
-                    Toggle("Start Live Wallpaper at Login", isOn: $launchAtLogin)
+                    Toggle("Start Live Wallpaper at Login", isOn: $launchSettings.launchAtLogin)
                         .padding(.bottom, 10)
                 }
             } header: {
@@ -44,7 +44,7 @@ struct GeneralSettingsView: View {
                 VStack {
                     Slider(value: fadeDurationBinding, in: 0...maxCrossFade) {
                         Text("Cross Fade On Loop: " +
-                             ((autoFadeDurationInSec ?? 0) > 0 ? "\(autoFadeDurationInSec!) Seconds" : "Off")
+                             ((settingsStore.current.autoFadeDurationInSec ?? 0) > 0 ? "\(settingsStore.current.autoFadeDurationInSec!) Seconds" : "Off")
                         )
                     } minimumValueLabel: {
                         Text("Off")
@@ -52,12 +52,12 @@ struct GeneralSettingsView: View {
                         Text(String(format: "%.0f Sec", maxCrossFade))
                     }
                     Divider()
-                    Picker(selection: $shuffleIntervalInMin) {
+                    Picker(selection: $settingsStore.current.shuffleIntervalInMin) {
                         ForEach(shuffleIntervalDefaults.keys.sorted(), id: \.self) { interval in
                             Text(shuffleIntervalDefaults[interval] ?? "").tag(interval)
                         }
-                        if (shuffleIntervalInMin != nil && shuffleIntervalDefaults[shuffleIntervalInMin!] == nil) {
-                            Text("Every \(shuffleIntervalInMin!) Minutes").tag(shuffleIntervalInMin)
+                        if (settingsStore.current.shuffleIntervalInMin != nil && shuffleIntervalDefaults[settingsStore.current.shuffleIntervalInMin!] == nil) {
+                            Text("Every \(settingsStore.current.shuffleIntervalInMin!) Minutes").tag(settingsStore.current.shuffleIntervalInMin)
                         }
                     } label: {
                         Text("Shuffle Interval")
@@ -76,9 +76,5 @@ struct GeneralSettingsView: View {
     @Previewable @State var autoFadeDurationInSec: Int? = 2
     @Previewable @State var shuffleIntervalInMin: Int? = 5
     
-    GeneralSettingsView(
-        launchAtLogin: $launchSettings.launchAtLogin,
-        autoFadeDurationInSec: $autoFadeDurationInSec,
-        shuffleIntervalInMin: $shuffleIntervalInMin
-    )
+    GeneralSettingsView().environment(SettingsStore(settings: Settings()))
 }
