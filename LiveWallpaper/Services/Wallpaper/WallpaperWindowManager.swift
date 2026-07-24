@@ -14,19 +14,13 @@ final class WallpaperWindowManager: ObservableObject {
 
     private let playbackController = VideoPlaybackController()
 
-    private var currentURL: URL?
+    private var currentItem: AVPlayerItem? = nil
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(initialURL: URL?) {
-        self.currentURL = initialURL
-
-        // Create the player first
-        playbackController.updateVideo(url: initialURL)
-
-        // Then build windows and attach the player
+    init() {
+        // Build windows first
         setupWallpaperWindows()
-
         setupObservers()
 
         NotificationCenter.default.publisher(
@@ -136,12 +130,7 @@ final class WallpaperWindowManager: ObservableObject {
     }
 
     private func updateWindowAppearance(_ window: NSWindow) {
-        // Access security-scoped resources safely to perform reachability check
-        let isSecureAccessStarted = currentURL?.startAccessingSecurityScopedResource() ?? false
-        let isReachable = (try? currentURL?.checkResourceIsReachable()) ?? false
-        if isSecureAccessStarted {
-            currentURL?.stopAccessingSecurityScopedResource()
-        }
+        let isReachable = currentItem != nil
 
         if isReachable {
             window.isOpaque = true
@@ -152,11 +141,27 @@ final class WallpaperWindowManager: ObservableObject {
         }
     }
 
+    // MARK: - Video Application Helper
+
+    @MainActor
+    private func applyVideoUpdate(videoItem: AVPlayerItem?) async {
+        guard let videoItem else {
+            return
+        }
+        await playbackController.updateVideo(playerItem: videoItem)
+
+        for window in windows {
+            updateWindowAppearance(window)
+        }
+
+        attachPlayerToWindows()
+        evaluateAllVisibilities()
+    }
+
     // MARK: - Public API
 
-    func updateVideo(url: URL?) {
-
-        currentURL = url
+    func updateVideo(videoItem: AVPlayerItem?) {
+        currentItem = videoItem
 
         // Ensure window background is black so fading the content view reveals black
         for window in windows {
@@ -175,21 +180,15 @@ final class WallpaperWindowManager: ObservableObject {
             // Detach active player from layers first so hardware decode surfaces are freed immediately
             self.detachPlayerFromWindows()
 
-            self.playbackController.updateVideo(url: url)
+            Task { @MainActor in
+                await self.applyVideoUpdate(videoItem: videoItem)
 
-            for window in self.windows {
-                self.updateWindowAppearance(window)
-            }
-
-            self.attachPlayerToWindows()
-
-            self.evaluateAllVisibilities()
-
-            // Quickly fade the new video view back in from black
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                for window in self.windows {
-                    window.contentView?.animator().alphaValue = 1.0
+                // Quickly fade the new video view back in from black
+                await NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.15
+                    for window in self.windows {
+                        window.contentView?.animator().alphaValue = 1.0
+                    }
                 }
             }
         })

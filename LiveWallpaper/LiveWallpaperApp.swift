@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import AVFoundation
 
 @main
 struct LiveWallpaperApp: App {
@@ -22,11 +23,15 @@ struct LiveWallpaperApp: App {
     init() {
         let loadedSettings = SettingsProvider.loadSettings()
             
-        _settingsStore = State(initialValue: SettingsStore(settings: loadedSettings))
-        _wallpapers = State(initialValue: wallpaperUrlProvider.retrieveMediaURLs(from: loadedSettings.wallpaperDirectory))
+        let store = SettingsStore(settings: loadedSettings)
+        _settingsStore = State(initialValue: store)
         
-        let windowManager = WallpaperWindowManager(initialURL: loadedSettings.selectedWallpaper)
+        let urlProvider = WallpaperUrlProvider()
+        _wallpapers = State(initialValue: urlProvider.retrieveMediaURLs(from: loadedSettings.wallpaperDirectory))
+        
+        let windowManager = WallpaperWindowManager()
         _wallpaperManagerService = StateObject(wrappedValue: windowManager)
+        LiveWallpaperApp.updateUrl(url: loadedSettings.selectedWallpaper, windowManager: windowManager, settings: store.current)
         
         let shuffler = WallpaperShuffler(
             currentWallpaperUrl: loadedSettings.selectedWallpaper,
@@ -35,7 +40,10 @@ struct LiveWallpaperApp: App {
         )
         
         shuffler.onWallpaperChanged = { [weak windowManager] url in
-            windowManager?.updateVideo(url: url)
+            guard let windowManager else {
+                return
+            }
+            LiveWallpaperApp.updateUrl(url: url, windowManager: windowManager, settings: store.current)
         }
         
         _wallpaperShuffler = StateObject(wrappedValue: shuffler)
@@ -61,7 +69,7 @@ struct LiveWallpaperApp: App {
             SettingsProvider.storeSettings(settings: newSettings)
         }
         .onChange(of: settingsStore.current.selectedWallpaper) { _, newVideoUrl in
-            wallpaperManagerService.updateVideo(url: newVideoUrl)
+            LiveWallpaperApp.updateUrl(url: newVideoUrl, windowManager: wallpaperManagerService, settings: settingsStore.current)
         }
         .onChange(of: settingsStore.current.wallpaperDirectory) { _, newDirectory in
             wallpaperShuffler.updateWallpaperDirectory(newDirectory)
@@ -69,6 +77,22 @@ struct LiveWallpaperApp: App {
         }
         .onChange(of: settingsStore.current.shuffleIntervalInMin) { _, newInterval in
             wallpaperShuffler.updateShuffleInterval(intervalInMin: newInterval)
+        }
+    }
+    
+    private static func updateUrl(url: URL?, windowManager: WallpaperWindowManager, settings: Settings) {
+        guard let url else {
+            return
+        }
+        Task { @MainActor in
+            do {
+                let videoItem = try await VideoItem.getAVPlayerItem(for: url, videoCompositionConfig: VideoCompositor.Configuration(
+                    crossFadeDuration: settings.autoFadeDurationInSec != nil ? Double(settings.autoFadeDurationInSec!) : nil
+                ))
+                windowManager.updateVideo(videoItem: videoItem)
+            } catch {
+                print("Could not update wallpaper: \(error.localizedDescription)")
+            }
         }
     }
 }

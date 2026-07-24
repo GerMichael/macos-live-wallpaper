@@ -14,16 +14,15 @@ class VideoLoopPlayer {
     var looper: AVPlayerLooper?
     
     // Store the URL so we can recover the video if the player fails during sleep
-    private let videoURL: URL
+    private let item: AVPlayerItem
 
-    init(url: URL) {
-        self.videoURL = url
+    init(item: AVPlayerItem) {
+        self.item = item
         setupPlayer()
     }
     
     private func setupPlayer() {
         player.isMuted = true
-        let item = AVPlayerItem(url: videoURL)
         looper = AVPlayerLooper(
             player: player,
             templateItem: item

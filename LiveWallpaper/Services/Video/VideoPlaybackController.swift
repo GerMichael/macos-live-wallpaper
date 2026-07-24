@@ -14,15 +14,9 @@ final class VideoPlaybackController {
         loopingPlayer?.player
     }
 
-    func updateVideo(url: URL?) {
-
+    func updateVideo(playerItem: AVPlayerItem) async {
         stop()
-
-        guard let url else {
-            return
-        }
-
-        loopingPlayer = VideoLoopPlayer(url: url)
+        loopingPlayer = VideoLoopPlayer(item: playerItem)
     }
 
     func play() {
