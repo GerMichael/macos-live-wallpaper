@@ -88,7 +88,7 @@ struct LiveWallpaperApp: App {
         }
         Task { @MainActor in
             do {
-                let videoItem = try await VideoItem.getAVPlayerItem(for: url, videoCompositionConfig: VideoCompositor.Configuration(
+                let videoItem = try await VideoItem.getAVPlayerItem(for: url, videoCompositionConfig: VideoCompositon.Configuration(
                     crossFadeDuration: settings.autoFadeDurationInSec != nil ? Double(settings.autoFadeDurationInSec!) : nil
                 ))
                 windowManager.replaceVideoItem(videoItem: videoItem, restorePlaybackProgress: restorePlaybackProgress)

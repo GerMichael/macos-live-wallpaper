@@ -8,15 +8,14 @@
 import Foundation
 import AVFoundation
 
-enum VideoCompositorError: Error {
+enum VideoCompositonError: Error {
     case noVideoTrack
     case cannotAddTrack
 }
 
-class VideoCompositor {
+class VideoCompositon {
     
     struct Configuration {
-        var blurRadius: Double?
         var crossFadeDuration: Double?
     }
 
@@ -27,7 +26,7 @@ class VideoCompositor {
         
     static func compose(for videoAsset: AVAsset, options compositionOptions: Configuration) async throws -> Result {
         guard let videoTrack = try await videoAsset.loadTracks(withMediaType: .video).first else {
-            throw VideoCompositorError.noVideoTrack
+            throw VideoCompositonError.noVideoTrack
         }
         
         let totalDuration = try await videoAsset.load(.duration)
@@ -57,7 +56,7 @@ class VideoCompositor {
             configuration: AVVideoComposition.Configuration(
                 frameDuration: CMTime(value: 1, timescale: 30),
                 instructions: instructions,
-                renderSize: try await videoTrack.load(.naturalSize)
+                renderSize: try await videoTrack.load(.naturalSize),
             )
         )
         
@@ -96,7 +95,7 @@ class VideoCompositor {
         
         guard let trackMain = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
               let trackOverlayed = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-            throw VideoCompositorError.cannotAddTrack
+            throw VideoCompositonError.cannotAddTrack
         }
         
         // 1. Insert trimmed main body [0, totalDuration - crossFadeDuration]
@@ -138,7 +137,7 @@ class VideoCompositor {
         videoTrack: AVAssetTrack
     ) throws -> [AVVideoCompositionInstruction] {
         guard let trackMain = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-            throw VideoCompositorError.cannotAddTrack
+            throw VideoCompositonError.cannotAddTrack
         }
         
         try trackMain.insertTimeRange(
