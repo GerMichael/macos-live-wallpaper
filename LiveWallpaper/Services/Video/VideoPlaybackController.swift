@@ -14,9 +14,19 @@ final class VideoPlaybackController {
         loopingPlayer?.player
     }
 
-    func updateVideo(playerItem: AVPlayerItem) async {
+    func replaceVideo(playerItem: AVPlayerItem) async {
         stop()
         loopingPlayer = VideoLoopPlayer(item: playerItem)
+    }
+    
+    func hotUpdateVideo(playerItem: AVPlayerItem) async {
+        pause()
+        let currentPlaybackTime = loopingPlayer?.player.currentTime()
+        stop()
+        loopingPlayer = VideoLoopPlayer(item: playerItem)
+        if let currentPlaybackTime {
+            await loopingPlayer?.player.seek(to: currentPlaybackTime)
+        }
     }
 
     func play() {

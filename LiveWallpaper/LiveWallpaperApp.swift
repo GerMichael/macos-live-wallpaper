@@ -77,10 +77,12 @@ struct LiveWallpaperApp: App {
         }
         .onChange(of: settingsStore.current.shuffleIntervalInMin) { _, newInterval in
             wallpaperShuffler.updateShuffleInterval(intervalInMin: newInterval)
+        }.onChange(of: settingsStore.current.autoFadeDurationInSec) { _, newDuration in
+            LiveWallpaperApp.updateUrl(url: settingsStore.current.selectedWallpaper, windowManager: wallpaperManagerService, settings: settingsStore.current, restorePlaybackProgress: true)
         }
     }
     
-    private static func updateUrl(url: URL?, windowManager: WallpaperWindowManager, settings: Settings) {
+    private static func updateUrl(url: URL?, windowManager: WallpaperWindowManager, settings: Settings, restorePlaybackProgress: Bool = false) {
         guard let url else {
             return
         }
@@ -89,7 +91,7 @@ struct LiveWallpaperApp: App {
                 let videoItem = try await VideoItem.getAVPlayerItem(for: url, videoCompositionConfig: VideoCompositor.Configuration(
                     crossFadeDuration: settings.autoFadeDurationInSec != nil ? Double(settings.autoFadeDurationInSec!) : nil
                 ))
-                windowManager.updateVideo(videoItem: videoItem)
+                windowManager.replaceVideoItem(videoItem: videoItem, restorePlaybackProgress: restorePlaybackProgress)
             } catch {
                 print("Could not update wallpaper: \(error.localizedDescription)")
             }

@@ -28,4 +28,8 @@ class VideoWallpaperView: NSView {
     var playerLayer: AVPlayerLayer {
         return self.layer as! AVPlayerLayer
     }
+    
+    func setPlayer(_ player: AVPlayer?) {
+        playerLayer.player = player
+    }
 }

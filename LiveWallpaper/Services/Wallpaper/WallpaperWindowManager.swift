@@ -144,11 +144,15 @@ final class WallpaperWindowManager: ObservableObject {
     // MARK: - Video Application Helper
 
     @MainActor
-    private func applyVideoUpdate(videoItem: AVPlayerItem?) async {
+    private func applyVideoUpdate(videoItem: AVPlayerItem?, restorePlaybackProgress: Bool) async {
         guard let videoItem else {
             return
         }
-        await playbackController.updateVideo(playerItem: videoItem)
+        if restorePlaybackProgress {
+            await playbackController.hotUpdateVideo(playerItem: videoItem)
+        } else {
+            await playbackController.replaceVideo(playerItem: videoItem)
+        }
 
         for window in windows {
             updateWindowAppearance(window)
@@ -160,9 +164,27 @@ final class WallpaperWindowManager: ObservableObject {
 
     // MARK: - Public API
 
-    func updateVideo(videoItem: AVPlayerItem?) {
+    func replaceVideoItem(videoItem: AVPlayerItem?, restorePlaybackProgress: Bool = false) {
         currentItem = videoItem
 
+        if restorePlaybackProgress {
+            return replaceVideoItemButKeepPlaybackProgress(videoItem: videoItem)
+        } else {
+            return replaceVideoItemSmoothly(videoItem: videoItem)
+        }
+    }
+    
+    func replaceVideoItemButKeepPlaybackProgress(videoItem: AVPlayerItem?) {
+        detachPlayerFromWindows()
+        Task { @MainActor in
+            await applyVideoUpdate(videoItem: videoItem, restorePlaybackProgress: true)
+            for window in windows {
+                window.contentView?.alphaValue = 1.0
+            }
+        }
+    }
+    
+    func replaceVideoItemSmoothly(videoItem: AVPlayerItem?) {
         // Ensure window background is black so fading the content view reveals black
         for window in windows {
             window.backgroundColor = .black
@@ -181,7 +203,7 @@ final class WallpaperWindowManager: ObservableObject {
             self.detachPlayerFromWindows()
 
             Task { @MainActor in
-                await self.applyVideoUpdate(videoItem: videoItem)
+                await self.applyVideoUpdate(videoItem: videoItem, restorePlaybackProgress: false)
 
                 // Quickly fade the new video view back in from black
                 await NSAnimationContext.runAnimationGroup { context in
@@ -199,7 +221,7 @@ final class WallpaperWindowManager: ObservableObject {
     private func detachPlayerFromWindows() {
         for window in windows {
             if let playerView = window.contentView as? VideoWallpaperView {
-                playerView.playerLayer.player = nil
+                playerView.setPlayer(nil)
             }
         }
     }
@@ -216,8 +238,8 @@ final class WallpaperWindowManager: ObservableObject {
             guard let playerView = window.contentView as? VideoWallpaperView else {
                 continue
             }
-
-            playerView.playerLayer.player = player
+            
+            playerView.setPlayer(player)
         }
     }
 }

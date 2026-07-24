@@ -90,7 +90,7 @@ class VideoCompositor {
         videoTrack: AVAssetTrack
     ) throws -> [AVVideoCompositionInstruction] {
         var instructions: [AVVideoCompositionInstruction] = []
-        let crossFadeTime = CMTime(seconds: min(crossFadeDuration, totalDuration.seconds), preferredTimescale: preferredTimeScale)
+        let crossFadeTime = CMTime(seconds: min(crossFadeDuration, totalDuration.seconds - 0.1), preferredTimescale: preferredTimeScale)
         
         let trimmedDuration = totalDuration - crossFadeTime
         
